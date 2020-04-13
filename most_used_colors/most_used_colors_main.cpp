@@ -5,6 +5,7 @@
 
 #include <lodepng.h>
 
+#include "common/bilinear_upscale.hpp"
 #include "most_used_colors.hpp"
 
 int main() {

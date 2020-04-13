@@ -6,7 +6,9 @@ add_library(common STATIC
     # ensures that a .lib file is generated on windows
     dummy.cpp
 
+	bilinear_upscale.hpp
 	dimensional_array.hpp
+	file_util.hpp
 	open_gl.hpp
 	sdl_helper.hpp
 	vector_math.hpp

@@ -2,8 +2,14 @@
 
 #include <array>
 #include <cmath>
+#include <execution>
 #include <numeric>
 #include <type_traits>
+
+namespace {
+constexpr auto parallel = std::execution::par_unseq;
+}
+
 
 template <typename T, std::size_t size_param>
 struct VecBase : public std::array<T, size_param> {
@@ -14,23 +20,30 @@ struct VecBase : public std::array<T, size_param> {
 
     constexpr VecBase() = default;
 
-    template <typename... T, typename = std::enable_if_t<sizeof...(T) == size_param>>
-    constexpr VecBase(T... elements) : ArrayType{elements...} {}
+    template <typename... U, typename = std::enable_if_t<sizeof...(U) == size_param>>
+    constexpr VecBase(U... elements) : ArrayType{elements...} {}
+
     constexpr VecBase(T value) {
-        std::fill(begin(), end(), value);
+        std::fill(parallel, begin(), end(), value);
     }
 
     template <typename U>
-    explicit operator VecBase<U, size_param>() {
+    constexpr explicit operator VecBase<U, size_param>() {
         VecBase<U, size_param> casted;
-        std::transform(begin(), end(), casted.begin(), [](auto x) { return static_cast<U>(x); });
+        std::transform(parallel, begin(), end(), casted.begin(),
+                       [](auto x) { return static_cast<U>(x); });
         return casted;
+    }
+
+    template <typename U>
+    constexpr auto as() {
+        return VecBase<U, size_param>(*this);
     }
 
     template <typename U>
     constexpr VecBase<decltype(T{} - U{}), size_param> operator-(
         VecBase<U, size_param> subtrahend) const {
-        VecBase<decltype(T{} - U{}), size_param > difference;
+        VecBase<decltype(T{} - U{}), size_param> difference;
         for (std::size_t idx{0}; idx < size_param; ++idx) {
             difference[idx] = (*this)[idx] - subtrahend[idx];
         }
@@ -38,8 +51,7 @@ struct VecBase : public std::array<T, size_param> {
     }
 
     template <typename U>
-    constexpr auto operator*(
-        VecBase<U, size_param> multiplicand) const {
+    constexpr auto operator*(VecBase<U, size_param> multiplicand) const {
         VecBase<decltype(T{} * U{}), size_param> product;
         for (std::size_t idx{0}; idx < size_param; ++idx) {
             product[idx] = (*this)[idx] * multiplicand[idx];
