@@ -4,7 +4,7 @@ in vec2 tex_coord;
 
 out vec4 frag_color[2];
 
-layout(binding = 0) uniform sampler2D input_texure;
+layout(binding = 0) uniform sampler2D input_texture;
 
 vec4 cubic(float v) {
     vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
@@ -73,10 +73,10 @@ float GenerateMaxDiff() {
 }
 
 const float max_diff = GenerateMaxDiff();
-const bool outline = true;
+const bool outline = false;
 
 void main() {
-	vec4 center_texel = textureLod(input_texure, tex_coord, 0.0);
+	vec4 center_texel = texture(input_texture, tex_coord);
 	vec2 final_offset = vec2(0.0);
     float total_diff = 0.0;
 	for(int y = -radius; y <= radius; ++y) {
@@ -84,21 +84,16 @@ void main() {
         	if (0 == (x | y)) continue;
 			vec2 offset = vec2(x, y);
 			float weight = pow(length(offset), -length(offset));
-			vec4 texel = textureOffset(input_texure, tex_coord, ivec2(x, y));
+			vec4 texel = textureOffset(input_texture, tex_coord, ivec2(x, y));
             float diff = ColorDist(texel, center_texel) * weight;
             total_diff += diff;
 			final_offset += diff * offset;
 	    }
 	}
+    float clamp_val = length(final_offset) / total_diff;
+    final_offset = clamp(final_offset, -clamp_val, clamp_val);
     frag_color[1] = vec4(abs(final_offset), final_offset.x * final_offset.y, 1.0);
-	final_offset /= textureSize(input_texure, 0);
-    vec4 offset_color = textureBicubic(input_texure, tex_coord - final_offset);
-    float black_level = 1.0 - smoothstep(max_diff - sqrt(max_diff), max_diff + sqrt(max_diff), total_diff * total_diff);
-    frag_color[0] = vec4(offset_color.rgb * black_level, offset_color.a);
-//    if (length(final_offset) < 1 / sqrt(max_offset) && total_diff > sqrt(max_offset)) {
-//        frag_color[0] = vec4(0.0, 0.0, 0.0, 1.0);
-//    } else {
-//        frag_color[0] = textureBicubic(input_texure, tex_coord - final_offset);
-//    }
-
+	final_offset /= textureSize(input_texture, 0);
+    vec4 offset_color = textureBicubic(input_texture, tex_coord - final_offset);
+    frag_color[0] = offset_color;
 }

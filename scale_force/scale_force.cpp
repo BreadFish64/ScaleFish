@@ -3,14 +3,12 @@
 
 #include "common/bilinear_upscale.hpp"
 #include "common/open_gl.hpp"
-#include "gradient_pull.hpp"
+#include "scale_force.hpp"
 
 int main(int argc, const char* argv[]) {
     std::vector<std::string_view> args(argc);
     for (std::size_t idx{0}; idx < argc; ++idx)
         args[idx] = argv[idx];
-    args.push_back("C:\\Users\\Marshall\\AppData\\Roaming\\Citra\\dump\\textures\\00040000000A0500\\tex1_"
-                   "256x256_88081B9B35AEE729_13.png");
 
     std::vector<std::filesystem::path> paths{
         std::remove_if(args.begin(), args.end(),
@@ -31,7 +29,8 @@ int main(int argc, const char* argv[]) {
         }
 
         for (const auto& file : files) {
-            auto name = file.stem().string();
+            auto name = "";
+            //file.stem().string();
 
             std::vector<std::uint8_t> image_data;
             std::uint32_t w, h;
@@ -42,7 +41,7 @@ int main(int argc, const char* argv[]) {
             lodepng::encode(fmt::format("{}_bilinear.png", name), bilinear_image, w * scale,
                             h * scale);
 
-            auto [filter_image, offset_data] = GradientPull(image_data, w, h, scale);
+            auto [filter_image, offset_data] = ScaleForce(image_data, w, h, scale);
             lodepng::encode(fmt::format("{}_gradient_pull.png", name), filter_image, w * scale,
                             h * scale);
             lodepng::encode(fmt::format("{}_offset_data.png", name), offset_data, w * scale,

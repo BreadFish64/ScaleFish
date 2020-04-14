@@ -8,4 +8,4 @@ include_directories(.)
 
 add_subdirectory(common)
 add_subdirectory(most_used_colors)
-add_subdirectory(gradient_pull)
+add_subdirectory(scale_force)

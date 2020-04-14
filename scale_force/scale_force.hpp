@@ -5,7 +5,7 @@
 #include "common/file_util.hpp"
 #include "common/open_gl.hpp"
 
-std::pair<std::vector<std::uint8_t>, std::vector<std::uint8_t>> GradientPull(
+std::pair<std::vector<std::uint8_t>, std::vector<std::uint8_t>> ScaleForce(
     const std::vector<std::uint8_t>& image_data,
                                           std::uint32_t width, std::uint32_t height,
                                           std::uint8_t scale_factor) {
