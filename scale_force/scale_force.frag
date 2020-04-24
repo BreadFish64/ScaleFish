@@ -1,10 +1,13 @@
-#version 450
+#version 320 es
+precision mediump float;
 
 in vec2 tex_coord;
 
 out vec4 frag_color[2];
 
 layout(binding = 0) uniform sampler2D input_texture;
+
+vec2 tex_size;
 
 vec4 cubic(float v) {
     vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
@@ -17,7 +20,7 @@ vec4 cubic(float v) {
 }
 
 vec4 textureBicubic(sampler2D sampler, vec2 tex_coords) {
-    vec2 tex_size = textureSize(sampler, 0);
+    vec2 tex_size = vec2(textureSize(sampler, 0));
     vec2 inv_tex_size = 1.0 / tex_size;
 
     tex_coords = tex_coords * tex_size - 0.5;
@@ -60,23 +63,10 @@ float ColorDist(vec4 a, vec4 b) {
 
 const int radius = 2;
 
-float GenerateMaxDiff() {
-    float max_diff = 0.0;
-    for(int y = -radius; y <= radius; ++y) {
-		for(int x = -radius; x <= radius; ++x) {
-            vec2 offset = vec2(x, y);
-			float weight = pow(length(offset), -length(offset));
-            max_diff += weight;
-	    }
-	}
-    return max_diff;
-}
-
-const float max_diff = GenerateMaxDiff();
-const bool outline = false;
-
 void main() {
 	vec4 center_texel = texture(input_texture, tex_coord);
+    tex_size = vec2(textureSize(input_texture, 0));
+
 	vec2 final_offset = vec2(0.0);
     float total_diff = 0.0;
 	for(int y = -radius; y <= radius; ++y) {
@@ -84,16 +74,17 @@ void main() {
         	if (0 == (x | y)) continue;
 			vec2 offset = vec2(x, y);
 			float weight = pow(length(offset), -length(offset));
-			vec4 texel = textureOffset(input_texture, tex_coord, ivec2(x, y));
+			vec4 texel = texture(input_texture, tex_coord + offset / tex_size);
             float diff = ColorDist(texel, center_texel) * weight;
             total_diff += diff;
 			final_offset += diff * offset;
 	    }
 	}
+
     float clamp_val = length(final_offset) / total_diff;
     final_offset = clamp(final_offset, -clamp_val, clamp_val);
-    frag_color[1] = vec4(abs(final_offset), final_offset.x * final_offset.y, 1.0);
-	final_offset /= textureSize(input_texture, 0);
+    frag_color[1] = vec4(abs(final_offset), clamp_val, 1.0);
+	final_offset /= vec2(textureSize(input_texture, 0));
     vec4 offset_color = textureBicubic(input_texture, tex_coord - final_offset);
     frag_color[0] = offset_color;
 }
