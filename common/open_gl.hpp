@@ -16,7 +16,7 @@ _declspec(dllexport) unsigned long NvOptimusEnablement = true;
 }
 
 namespace OpenGL {
-
+namespace Resource {
 #define GL_RESOURCE_WRAPPER(_resource)                                                             \
     struct _resource {                                                                             \
         GLuint handle = NULL;                                                                      \
@@ -48,8 +48,18 @@ GL_RESOURCE_WRAPPER(Texture);
 GL_RESOURCE_WRAPPER(VertexArray);
 GL_RESOURCE_WRAPPER(Sampler);
 GL_RESOURCE_WRAPPER(Renderbuffer);
-
+GL_RESOURCE_WRAPPER(Querie);
 #undef GL_RESOURCE_WRAPPER
+
+} // namespace Resource
+
+using Resource::Buffer;
+using Resource::Framebuffer;
+using Resource::VertexArray;
+using Resource::Sampler;
+using Resource::Renderbuffer;
+using Resource::Texture;
+using Query = Resource::Querie;
 
 struct Shader {
     GLuint handle = NULL;
@@ -153,8 +163,8 @@ static void APIENTRY DebugHandler(GLenum source, GLenum type, GLuint id, GLenum 
     fmt::print("OpenGL {} {}: {}\n", severity_map.at(severity), id, message);
 }
 
-std::optional<SDL::GLContext> context;
-SDL::SDLPtr<SDL_Window> fake_window;
+inline std::optional<SDL::GLContext> context;
+inline SDL::SDLPtr<SDL_Window> fake_window;
 
 void InitOffscreenContext() {
     SDL_Init(SDL_INIT_VIDEO);
