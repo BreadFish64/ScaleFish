@@ -16,7 +16,7 @@ class ScaleForce {
     OpenGL::Program program{vertex_shader, fragment_shader};
 
 public:
-    std::pair<std::vector<std::uint8_t>, std::vector<std::uint8_t>> Scale(
+    std::vector<std::uint8_t> Scale(
         const std::vector<std::uint8_t>& image_data, std::uint32_t width, std::uint32_t height,
         std::uint8_t scale_factor) {
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_fbo.handle);
@@ -57,13 +57,11 @@ public:
         std::vector<std::uint8_t> filter_output(image_data.size() * scale_factor * scale_factor);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, filter_output.data());
 
-        std::vector<std::uint8_t> offset_output;
-
         GLuint64 render_time;
         glGetQueryObjectui64v(render_time_query, GL_QUERY_RESULT, &render_time);
         fmt::print(std::cout, "ScaleForce completed {}x{} in {}",
                    width, height, std::chrono::duration<double, std::milli>{std::chrono::nanoseconds{render_time}});
 
-        return {filter_output, offset_output};
+        return filter_output;
     }
 };

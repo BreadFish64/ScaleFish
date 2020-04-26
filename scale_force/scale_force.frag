@@ -11,8 +11,8 @@ vec2 tex_size;
 vec2 inv_tex_size;
 
 vec4 cubic(float v) {
-    vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
-    vec4 s = n * n * n;
+    vec3 n = vec3(1.0, 2.0, 3.0) - v;
+    vec3 s = n * n * n;
     float x = s.x;
     float y = s.y - 4.0 * s.x;
     float z = s.z - 4.0 * s.y + 6.0 * s.x;
@@ -25,7 +25,7 @@ vec4 textureBicubic(vec2 tex_coords) {
     tex_coords = tex_coords * tex_size - 0.5;
 
     vec2 fxy = fract(tex_coords);
-    tex_coords -= fxy;
+    tex_coords = floor(tex_coords);
 
     vec4 xcubic = cubic(fxy.x);
     vec4 ycubic = cubic(fxy.y);
@@ -57,20 +57,16 @@ float ColorDist(vec4 a, vec4 b) {
     const float LUMINANCE_WEIGHT = .6;
     const mat3 MATRIX = mat3(K * LUMINANCE_WEIGHT, -.5 * K.r / (1.0 - K.b), -.5 * K.g / (1.0 - K.b),
                              .5, .5, -.5 * K.g / (1.0 - K.r), -.5 * K.b / (1.0 - K.r));
-    const float LENGTH_ADJUSTMENT = length(vec3(1.0)) / length(vec3(LUMINANCE_WEIGHT, 1.0, 1.0));
 
     vec4 diff = abs(a - b);
     vec2 alpha_product = vec2(a.a * b.a);
     vec3 YCbCr = diff.rgb * MATRIX;
-    float d = dot(YCbCr, YCbCr) * (LENGTH_ADJUSTMENT * LENGTH_ADJUSTMENT);
+    float d = dot(YCbCr, YCbCr);
     return sqrt(dot(vec2(d + diff.a), alpha_product));
 }
 
-// Regular Bilinear interpolated texel at tex_coord.
-vec4 center_texel;
-
 void main() {
-    center_texel = textureLod(input_texture, tex_coord, 0.0);
+    vec4 center_texel = textureLod(input_texture, tex_coord, 0.0);
     tex_size = vec2(textureSize(input_texture, 0));
     inv_tex_size = 1.0 / tex_size;
 
@@ -79,11 +75,12 @@ void main() {
     vec3 total_offset = vec3(0.0);
 
 // Calculates the effect of the surrounding texels on the final texel's coordinate.
-#define ColorDiff(x, y) {                                                                         \
-    const vec2 offset = vec2(x, y);                                                               \
-    vec4 texel = textureLod(input_texture, tex_coord + offset * inv_tex_size, 0.0);         \
-    total_offset += vec3(ColorDist(texel, center_texel)) * vec3(offset, 1.0);            \
-}
+#define ColorDiff(x, y)                                                                            \
+    {                                                                                              \
+        const vec2 offset = vec2(x, y);                                                            \
+        vec4 texel = textureLod(input_texture, tex_coord + offset * inv_tex_size, 0.0);            \
+        total_offset += vec3(ColorDist(texel, center_texel)) * vec3(offset, 1.0);                  \
+    }
 
     ColorDiff(-1, -1);
     ColorDiff(0, -1);
@@ -97,7 +94,7 @@ void main() {
     ColorDiff(0, 1);
     ColorDiff(1, 1);
 
-    if(total_offset.z == 0.0){
+    if (total_offset.z == 0.0) {
         // Doing bicubic filtering just past the edges where the offset is 0 causes black floaters
         // and it doesn't really matter which filter is used when the colors aren't changing.
         frag_color = center_texel;
@@ -107,9 +104,8 @@ void main() {
         // and total_offset reaches into clear areas.
         // This works pretty well to keep the offset in bounds for these cases.
         float clamp_val = length(total_offset.xy) / total_offset.z;
-        vec2 final_offset = clamp(total_offset.xy, -clamp_val, clamp_val);
+        vec2 final_offset = clamp(total_offset.xy, -clamp_val, clamp_val) * inv_tex_size;
 
-        final_offset /= vec2(textureSize(input_texture, 0));
         frag_color = textureBicubic(tex_coord - final_offset);
     }
 }
