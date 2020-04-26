@@ -6,11 +6,8 @@
 #include "scale_force.hpp"
 
 int main(int argc, const char* argv[]) {
-    std::vector<std::string_view> args(argc);
-    for (std::size_t idx{0}; idx < argc; ++idx)
-        args[idx] = argv[idx];
-
     std::vector<std::string_view> args{argv, argv + argc};
+    args.push_back("lisia.png");
     std::vector<std::filesystem::path> paths{
         std::remove_if(args.begin(), args.end(),
                        [](std::string_view x) { return std::filesystem::exists(x); }),
@@ -42,10 +39,8 @@ int main(int argc, const char* argv[]) {
             lodepng::encode(fmt::format("{}_bilinear.png", name), bilinear_image, w * scale,
                             h * scale);
 
-            auto [filter_image, offset_data] = scale_force.Scale(image_data, w, h, scale);
+            auto filter_image = scale_force.Scale(image_data, w, h, scale);
             lodepng::encode(fmt::format("{}_gradient_pull.png", name), filter_image, w * scale,
-                            h * scale);
-            lodepng::encode(fmt::format("{}_offset_data.png", name), offset_data, w * scale,
                             h * scale);
         }
     }

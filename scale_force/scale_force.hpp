@@ -57,9 +57,7 @@ public:
         std::vector<std::uint8_t> filter_output(image_data.size() * scale_factor * scale_factor);
         glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, filter_output.data());
 
-        glActiveTexture(GL_TEXTURE2);
-        std::vector<std::uint8_t> offset_output(image_data.size() * scale_factor * scale_factor);
-        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, offset_output.data());
+        std::vector<std::uint8_t> offset_output;
 
         GLuint64 render_time;
         glGetQueryObjectui64v(render_time_query, GL_QUERY_RESULT, &render_time);

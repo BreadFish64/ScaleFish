@@ -58,6 +58,7 @@ float ColorDist(vec4 a, vec4 b) {
     const mat3 MATRIX = mat3(K * LUMINANCE_WEIGHT, -.5 * K.r / (1.0 - K.b), -.5 * K.g / (1.0 - K.b),
                              .5, .5, -.5 * K.g / (1.0 - K.r), -.5 * K.b / (1.0 - K.r));
     const float LENGTH_ADJUSTMENT = length(vec3(1.0)) / length(vec3(LUMINANCE_WEIGHT, 1.0, 1.0));
+
     vec4 diff = abs(a - b);
     vec2 alpha_product = vec2(a.a * b.a);
     vec3 YCbCr = diff.rgb * MATRIX;
@@ -68,14 +69,6 @@ float ColorDist(vec4 a, vec4 b) {
 // Regular Bilinear interpolated texel at tex_coord.
 vec4 center_texel;
 
-// Calculates the effect of the surrounding texels on the final texel's coordinate.
-#define ColorDiff(x, y) {                                                                         \
-    const vec2 offset = vec2(x, y);                                                               \
-    const float weight = pow(length(offset), -length(offset));                                    \
-    vec4 texel = textureLodOffset(input_texture, tex_coord, 0.0, ivec2(x, y));                    \
-    total_offset += vec3(ColorDist(texel, center_texel) * weight) * vec3(offset, 1.0);            \
-}
-
 void main() {
     center_texel = textureLod(input_texture, tex_coord, 0.0);
     tex_size = vec2(textureSize(input_texture, 0));
@@ -85,31 +78,24 @@ void main() {
     // z is the sum of all the weighted color differences from surrounding pixels.
     vec3 total_offset = vec3(0.0);
 
-    ColorDiff(-1, -2);
-    ColorDiff(0, -2);
-    ColorDiff(1, -2);
+// Calculates the effect of the surrounding texels on the final texel's coordinate.
+#define ColorDiff(x, y) {                                                                         \
+    const vec2 offset = vec2(x, y);                                                               \
+    vec4 texel = textureLod(input_texture, tex_coord + offset * inv_tex_size, 0.0);         \
+    total_offset += vec3(ColorDist(texel, center_texel)) * vec3(offset, 1.0);            \
+}
 
-    ColorDiff(-2, -1);
     ColorDiff(-1, -1);
     ColorDiff(0, -1);
     ColorDiff(1, -1);
-    ColorDiff(2, -1);
 
-    ColorDiff(-2, 0);
     ColorDiff(-1, 0);
     // center_tex
     ColorDiff(1, 0);
-    ColorDiff(2, 0);
 
-    ColorDiff(-2, 1);
     ColorDiff(-1, 1);
     ColorDiff(0, 1);
     ColorDiff(1, 1);
-    ColorDiff(2, 1);
-
-    ColorDiff(-1, 2);
-    ColorDiff(0, 2);
-    ColorDiff(1, 2);
 
     if(total_offset.z == 0.0){
         // Doing bicubic filtering just past the edges where the offset is 0 causes black floaters
