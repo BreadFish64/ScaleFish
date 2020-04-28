@@ -34,7 +34,7 @@ int main(int argc, const char* argv[]) {
             std::uint32_t w, h;
             lodepng::decode(image_data, w, h, file.string());
 
-            constexpr unsigned scale = 3;
+            constexpr unsigned scale = 4;
             auto bilinear_image = BilinearUpscale(image_data, w, h, scale);
             lodepng::encode(fmt::format("{}_bilinear.png", name), bilinear_image, w * scale,
                             h * scale);
