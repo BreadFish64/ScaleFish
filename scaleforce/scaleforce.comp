@@ -1,0 +1,78 @@
+#version 460
+
+#define WORKGROUP_SIZE 8
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+
+layout (location = 0) uniform bool write_offsets;
+
+layout (binding = 0) uniform sampler2D input_texture;
+layout (binding = 0) uniform writeonly image2D output_texture;
+layout (binding = 1) uniform writeonly image2D offset_texture;
+
+mat4x3 center_matrix;
+vec4   center_alpha;
+
+// Finds the distance between four colors and cc in YCbCr space
+vec4 ColorDist(vec4 A, vec4 B, vec4 C, vec4 D) {
+    // https://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.2020_conversion
+    const vec3 K = vec3(0.2627, 0.6780, 0.0593);
+    const float LUMINANCE_WEIGHT = 1.0;
+    const mat3 YCBCR_MATRIX =
+        mat3(K * LUMINANCE_WEIGHT, -.5 * K.r / (1.0 - K.b), -.5 * K.g / (1.0 - K.b), .5, .5,
+             -.5 * K.g / (1.0 - K.r), -.5 * K.b / (1.0 - K.r));
+
+    mat4x3 colors = mat4x3(A.rgb, B.rgb, C.rgb, D.rgb) - center_matrix;
+    mat4x3 YCbCr = YCBCR_MATRIX * colors;
+    vec4 color_dist = vec3(1.0) * YCbCr;
+    color_dist *= color_dist;
+    vec4 alpha = vec4(A.a, B.a, C.a, D.a);
+
+    return sqrt((color_dist + distance(alpha, center_alpha)) * center_alpha * alpha);
+}
+
+void main() {
+    vec2 tex_size = textureSize(input_texture, 0);
+    vec2 tex_coord = (vec2(gl_GlobalInvocationID.xy) + 0.5) / imageSize(output_texture);
+
+    vec4 bl = textureOffset(input_texture, tex_coord, ivec2(-1, -1));
+    vec4 bc = textureOffset(input_texture, tex_coord, ivec2(0, -1));
+    vec4 br = textureOffset(input_texture, tex_coord, ivec2(1, -1));
+    vec4 cl = textureOffset(input_texture, tex_coord, ivec2(-1, 0));
+    vec4 cc = texture(input_texture, tex_coord);
+    vec4 cr = textureOffset(input_texture, tex_coord, ivec2(1, 0));
+    vec4 tl = textureOffset(input_texture, tex_coord, ivec2(-1, 1));
+    vec4 tc = textureOffset(input_texture, tex_coord, ivec2(0, 1));
+    vec4 tr = textureOffset(input_texture, tex_coord, ivec2(1, 1));
+
+    center_matrix = mat4x3(cc.rgb, cc.rgb, cc.rgb, cc.rgb);
+    center_alpha = cc.aaaa;
+
+    vec4 offset_tl = ColorDist(tl, tc, tr, cr);
+    vec4 offset_br = ColorDist(br, bc, bl, cl);
+
+    // Calculate how different cc is from the texels around it
+    const float plus_weight = 1.5;
+    const float cross_weight = 1.5;
+    float total_dist = dot(offset_tl + offset_br, vec4(cross_weight, plus_weight, cross_weight, plus_weight));
+
+    vec4 frag_color;
+    if (total_dist == 0.0) {
+        frag_color = cc;
+    } else {
+        // Add together all the distances with direction taken into account
+        vec4 tmp = offset_tl - offset_br;
+        vec2 total_offset = tmp.wy * plus_weight + (tmp.zz + vec2(-tmp.x, tmp.x)) * cross_weight;
+
+        // When the image has thin points, they tend to split apart.
+        // This is because the texels all around are different and total_offset reaches into clear areas.
+        // This works pretty well to keep the offset in bounds for these cases.
+        float clamp_val = length(total_offset) / total_dist;
+        vec2 final_offset = clamp(total_offset, -clamp_val, clamp_val) / tex_size;
+
+        frag_color = texture(input_texture, tex_coord - final_offset);
+        if (write_offsets) {
+            imageStore(offset_texture, ivec2(gl_GlobalInvocationID.xy), vec4(final_offset, 0, 1));
+        }
+    }
+    imageStore(output_texture, ivec2(gl_GlobalInvocationID.xy), frag_color);
+}

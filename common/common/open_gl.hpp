@@ -1,19 +1,13 @@
 #pragma once
 
-#include <iostream>
-#include <optional>
-#include <unordered_map>
-#include <vector>
+#include "sdl_helper.hpp"
 
 #include <fmt/ostream.h>
 
 #include <glad/glad.h>
 
-#include "sdl_helper.hpp"
-
-extern "C" {
-_declspec(dllexport) unsigned long NvOptimusEnablement = true;
-}
+#include <cassert>
+#include <iostream>
 
 namespace OpenGL {
 namespace Resource {
@@ -24,8 +18,7 @@ namespace Resource {
         _resource(_resource&& o) noexcept : handle(std::exchange(o.handle, 0)) {}                  \
                                                                                                    \
         _resource(bool create = false) {                                                           \
-            if (create)                                                                            \
-                Create();                                                                          \
+            if (create) Create();                                                                  \
         }                                                                                          \
                                                                                                    \
         void Create() {                                                                            \
@@ -33,13 +26,9 @@ namespace Resource {
             glGen##_resource##s(1, &handle);                                                       \
         }                                                                                          \
                                                                                                    \
-        ~_resource() {                                                                             \
-            glDelete##_resource##s(1, &handle);                                                    \
-        }                                                                                          \
+        ~_resource() { glDelete##_resource##s(1, &handle); }                                       \
                                                                                                    \
-        operator GLuint() const {                                                                  \
-            return handle;                                                                         \
-        }                                                                                          \
+        operator GLuint() const { return handle; }                                                 \
     }
 
 GL_RESOURCE_WRAPPER(Buffer);
@@ -55,10 +44,10 @@ GL_RESOURCE_WRAPPER(Querie);
 
 using Resource::Buffer;
 using Resource::Framebuffer;
-using Resource::VertexArray;
-using Resource::Sampler;
 using Resource::Renderbuffer;
+using Resource::Sampler;
 using Resource::Texture;
+using Resource::VertexArray;
 using Query = Resource::Querie;
 
 struct Shader {
@@ -90,13 +79,10 @@ struct Shader {
     }
 
     ~Shader() {
-        if (handle)
-            glDeleteShader(handle);
+        if (handle) glDeleteShader(handle);
     }
 
-    operator GLuint() const {
-        return handle;
-    }
+    operator GLuint() const { return handle; }
 };
 
 struct Program {
@@ -105,23 +91,18 @@ struct Program {
     Program(Program&& o) noexcept : handle(std::exchange(o.handle, 0)) {}
 
     Program(bool create = false) {
-        if (create)
-            Create();
+        if (create) Create();
     }
 
     Program(std::initializer_list<std::reference_wrapper<Shader>> shaders) {
         Create(std::move(shaders));
     }
 
-    void Create() {
-        handle = glCreateProgram();
-    }
+    void Create() { handle = glCreateProgram(); }
 
     bool Create(std::initializer_list<std::reference_wrapper<Shader>> shaders) {
         handle = glCreateProgram();
-        for (const auto& shader : shaders) {
-            glAttachShader(handle, shader.get());
-        }
+        for (const auto& shader : shaders) { glAttachShader(handle, shader.get()); }
         glLinkProgram(handle);
 
         GLint isLinked = 0;
@@ -136,56 +117,18 @@ struct Program {
             handle = NULL;
         }
 
-        for (const auto& shader : shaders) {
-            glDetachShader(handle, shader.get());
-        }
+        for (const auto& shader : shaders) { glDetachShader(handle, shader.get()); }
         return handle != NULL;
     }
 
     ~Program() {
-        if (handle)
-            glDeleteProgram(handle);
+        if (handle) glDeleteProgram(handle);
     }
 
-    operator GLuint() const {
-        return handle;
-    }
+    operator GLuint() const { return handle; }
 };
 
-static void APIENTRY DebugHandler(GLenum source, GLenum type, GLuint id, GLenum severity,
-                                  GLsizei length, const GLchar* message, const void* user_param) {
-    static const std::unordered_map<GLenum, std::string_view> severity_map{
-        {GL_DEBUG_SEVERITY_NOTIFICATION, "Notification"},
-        {GL_DEBUG_SEVERITY_LOW, "Info"},
-        {GL_DEBUG_SEVERITY_MEDIUM, "Warning"},
-        {GL_DEBUG_SEVERITY_HIGH, "Error"},
-    };
-    fmt::print("OpenGL {} {}: {}\n", severity_map.at(severity), id, message);
-}
-
-inline std::optional<SDL::GLContext> context;
-inline SDL::SDLPtr<SDL_Window> fake_window;
-
-void InitOffscreenContext() {
-    SDL_Init(SDL_INIT_VIDEO);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    fake_window.reset(SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 0, 0,
-                                       SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN));
-
-    context.emplace(fake_window.get());
-
-    if (!gladLoadGLLoader(SDL_GL_GetProcAddress)) {
-        fmt::print(std::cerr, "OpenGL failed to load");
-        std::exit(2);
-    }
-
-    glEnable(GL_DEBUG_OUTPUT);
-    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback(DebugHandler, nullptr);
-
-    return;
-}
+std::pair<SDLPtr<SDL_Window>, SDLPtr<std::remove_pointer_t<SDL_GLContext>>> InitContext(
+    bool offscreen, bool debug_opengl);
 
 } // namespace OpenGL

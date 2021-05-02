@@ -1,4 +1,4 @@
-#include <vector>
+#include "bilinear_upscale.hpp"
 
 #include "open_gl.hpp"
 
